@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incremental Mobile Game</title>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Extra styles if needed */
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-900 flex items-center justify-center min-h-screen">
+    <div id="app" v-cloak class="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 m-4 flex flex-col items-center gap-8">
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-indigo-600">Mobile Incremental</h1>
+            <p class="text-gray-500 mt-2">Tap to grow your score!</p>
+        </header>
+
+        <main class="flex flex-col items-center gap-6 w-full">
+            <div class="bg-indigo-50 w-full py-10 rounded-xl flex flex-col items-center border border-indigo-100 shadow-inner">
+                <span class="text-gray-400 uppercase tracking-widest text-xs font-semibold">Current Score</span>
+                <div class="text-6xl font-black text-indigo-700 tabular-nums">{{ score }}</div>
+            </div>
+
+            <button
+                @click="increaseScore"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-transform text-white font-bold py-6 rounded-xl text-2xl shadow-lg active:shadow-md select-none touch-manipulation"
+            >
+                Increase Score
+            </button>
+        </main>
+
+        <footer class="text-gray-400 text-xs mt-auto">
+            Mobile Optimized &bull; Powered by Vue & Tailwind
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        createApp({
+            setup() {
+                const score = ref(0);
+
+                const increaseScore = () => {
+                    const amount = Math.floor(Math.random() * 5) + 1;
+                    score.value += amount;
+                };
+
+                return {
+                    score,
+                    increaseScore
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
