@@ -4,7 +4,7 @@ A simple incremental web game built with Vue 3, Vite, Pinia, and Tailwind CSS.
 
 ## Getting Started
 
-Note: This project uses ES modules and modern web features that require a development server. **Opening `index.html` directly in your browser will not work.**
+Note: This project is configured to bundle everything into a single file. **You can open `index.html` directly in your browser** (using the `file://` protocol) and it will work!
 
 ### Prerequisites
 
