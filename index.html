@@ -11,26 +11,61 @@
     <style>
         /* Extra styles if needed */
         [v-cloak] { display: none; }
+        .perspective-1000 { perspective: 1000px; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .backface-hidden { backface-visibility: hidden; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans text-gray-900 flex items-center justify-center min-h-screen">
     <div id="app" v-cloak class="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 m-4 flex flex-col items-center gap-8">
         <header class="text-center">
-            <h1 class="text-3xl font-bold text-indigo-600">Mobile Incremental</h1>
-            <p class="text-gray-500 mt-2">Tap to grow your score!</p>
+            <h1 class="text-3xl font-bold text-indigo-600">Equipment Gacha</h1>
+            <p class="text-gray-500 mt-2">Test your luck with the cards!</p>
         </header>
 
-        <main class="flex flex-col items-center gap-6 w-full">
-            <div class="bg-indigo-50 w-full py-10 rounded-xl flex flex-col items-center border border-indigo-100 shadow-inner">
-                <span class="text-gray-400 uppercase tracking-widest text-xs font-semibold">Current Score</span>
-                <div class="text-6xl font-black text-indigo-700 tabular-nums">{{ score }}</div>
+        <main class="flex flex-col items-center gap-10 w-full">
+            <!-- Currency Display -->
+            <div class="bg-indigo-50 w-full py-4 rounded-xl flex flex-col items-center border border-indigo-100 shadow-inner">
+                <span class="text-gray-400 uppercase tracking-widest text-xs font-semibold">Currency</span>
+                <div class="text-4xl font-black text-indigo-700 tabular-nums">{{ currency }}</div>
             </div>
 
+            <!-- Card Stack Area -->
+            <div class="relative w-48 h-72 perspective-1000">
+                <!-- Visual Stack Effect -->
+                <div class="absolute inset-0 bg-white border-2 border-indigo-100 rounded-xl rotate-3 translate-x-2 translate-y-2 shadow-sm"></div>
+                <div class="absolute inset-0 bg-white border-2 border-indigo-100 rounded-xl -rotate-2 -translate-x-1 translate-y-1 shadow-sm"></div>
+
+                <!-- Top Card -->
+                <div
+                    class="absolute inset-0 w-full h-full transition-transform duration-500"
+                    style="transform-style: preserve-3d;"
+                    :style="isFlipped ? 'transform: rotateY(180deg)' : ''"
+                >
+                    <!-- Front (Card Back) -->
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-xl flex flex-col items-center justify-center border-4 border-white text-white backface-hidden">
+                        <div class="text-5xl mb-2">🎴</div>
+                        <div class="font-bold uppercase tracking-widest text-sm">Draw Card</div>
+                    </div>
+
+                    <!-- Back (Revealed Item) -->
+                    <div class="absolute inset-0 bg-white rounded-xl shadow-xl flex flex-col items-center justify-center border-4 border-indigo-500 text-center p-4 backface-hidden rotate-y-180">
+                        <template v-if="flippedCard">
+                            <span class="text-indigo-600 font-bold uppercase text-[10px] mb-2 tracking-tighter">New Equipment</span>
+                            <div class="text-2xl font-black text-gray-800 leading-tight">{{ flippedCard }}</div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Button -->
             <button
-                @click="increaseScore"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-transform text-white font-bold py-6 rounded-xl text-2xl shadow-lg active:shadow-md select-none touch-manipulation"
+                @click="flipCard"
+                :disabled="currency <= 0"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:bg-gray-400 disabled:scale-100 transition-all text-white font-bold py-6 rounded-xl text-2xl shadow-lg active:shadow-md select-none touch-manipulation flex flex-col items-center"
             >
-                Increase Score
+                <span>Flip Card</span>
+                <span class="text-sm font-normal opacity-80">Costs 1 Currency</span>
             </button>
         </main>
 
@@ -44,16 +79,45 @@
 
         createApp({
             setup() {
-                const score = ref(0);
+                const currency = ref(100);
+                const flippedCard = ref(null);
+                const isFlipped = ref(false);
+                const isAnimating = ref(false);
 
-                const increaseScore = () => {
-                    const amount = Math.floor(Math.random() * 5) + 1;
-                    score.value += amount;
+                const equipmentList = [
+                    "Weapon", "Gloves", "Boots", "Helmet",
+                    "Chestplate", "Legguards", "Ring", "Amulet"
+                ];
+
+                const flipCard = () => {
+                    if (currency.value > 0 && !isAnimating.value) {
+                        if (isFlipped.value) {
+                            // Reset state to unflip
+                            isFlipped.value = false;
+                            isAnimating.value = true;
+                            // Wait for unflip animation (500ms) before flipping again
+                            setTimeout(() => {
+                                isAnimating.value = false;
+                                performFlip();
+                            }, 500);
+                        } else {
+                            performFlip();
+                        }
+                    }
+                };
+
+                const performFlip = () => {
+                    currency.value -= 1;
+                    const randomIndex = Math.floor(Math.random() * equipmentList.length);
+                    flippedCard.value = equipmentList[randomIndex];
+                    isFlipped.value = true;
                 };
 
                 return {
-                    score,
-                    increaseScore
+                    currency,
+                    flippedCard,
+                    isFlipped,
+                    flipCard
                 };
             }
         }).mount('#app');
