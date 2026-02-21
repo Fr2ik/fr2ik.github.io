@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        [v-cloak] { display: none; }
         body {
             background-color: #1a1a1a;
             color: white;
@@ -46,89 +47,127 @@
         .card-front {
             background: linear-gradient(135deg, #333, #111);
             background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.05) 20px);
+            cursor: pointer;
         }
         .card-back {
             background: #2a2a2a;
             transform: rotateY(180deg);
         }
-        .card-stack-offset {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            transform: translate(4px, 4px);
-            background: #222;
-            border: 2px solid #333;
-        }
         .rank-f { color: #9ca3af; border-color: #4b5563; }
         .rank-d { color: #60a5fa; border-color: #2563eb; }
     </style>
 </head>
-<body class="flex flex-col items-center justify-between min-h-screen py-8 select-none">
-    <div id="app" class="w-full flex flex-col items-center justify-between h-full">
-        <!-- Header -->
-        <div class="text-center mt-4">
-            <h1 class="text-2xl font-bold tracking-wider text-yellow-500">EQUIPMENT GACHA</h1>
-            <div class="mt-2 text-xl bg-gray-800 px-6 py-2 rounded-full border border-gray-700">
-                <span class="text-gray-400 mr-2">Currency:</span>
-                <span class="font-mono text-yellow-400">{{ currency }}</span>
-            </div>
+<body class="flex flex-col min-h-screen select-none">
+    <div id="app" v-cloak class="flex flex-col h-screen">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700">
+            <button @click="activeTab = 'gacha'"
+                :class="activeTab === 'gacha' ? 'text-yellow-500 border-yellow-500 bg-gray-800' : 'text-gray-500 border-transparent bg-gray-900'"
+                class="flex-1 py-3 text-center font-bold transition-colors border-b-2">
+                GACHA
+            </button>
+            <button @click="activeTab = 'character'"
+                :class="activeTab === 'character' ? 'text-yellow-500 border-yellow-500 bg-gray-800' : 'text-gray-500 border-transparent bg-gray-900'"
+                class="flex-1 py-3 text-center font-bold transition-colors border-b-2">
+                CHARACTER
+            </button>
         </div>
 
-        <!-- Center Area: Card Stack -->
-        <div class="relative flex items-center justify-center">
-            <!-- Decorative stack layers -->
-            <div class="card-container absolute translate-x-2 translate-y-2 opacity-40">
-                <div class="card-face card-front"></div>
-            </div>
-            <div class="card-container absolute translate-x-1 translate-y-1 opacity-70">
-                <div class="card-face card-front"></div>
-            </div>
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col items-center justify-between py-6 overflow-hidden">
 
-            <!-- Main Card -->
-            <div class="card-container">
-                <div class="card" :class="{ 'is-flipped': isFlipped }">
-                    <div class="card-face card-front">
-                        <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
-                            <span class="text-3xl text-gray-600">?</span>
-                        </div>
-                    </div>
-                    <div class="card-face card-back" :class="rarityClass">
-                        <div class="text-sm font-bold uppercase tracking-widest mb-1">{{ lastRank }}</div>
-                        <div class="text-xl font-bold mb-4 text-center px-4">{{ lastItem }}</div>
-                        <div class="w-full border-t border-gray-700 my-2"></div>
-                        <div class="text-lg font-mono">{{ lastStatName }}:</div>
-                        <div class="text-2xl font-bold text-white">{{ lastStatValue }}</div>
+            <!-- GACHA TAB -->
+            <template v-if="activeTab === 'gacha'">
+                <div class="text-center">
+                    <div class="text-xl bg-gray-800 px-6 py-2 rounded-full border border-gray-700 inline-block">
+                        <span class="text-gray-400 mr-2">Currency:</span>
+                        <span class="font-mono text-yellow-400">{{ currency }}</span>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Footer: Action -->
-        <div class="w-full px-8 mb-8">
-            <button
-                @click="flipCard"
-                :disabled="currency < 1 || isAnimating"
-                class="w-full bg-yellow-600 hover:bg-yellow-500 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all text-white font-bold py-4 rounded-xl text-xl shadow-lg border-b-4 border-yellow-800"
-            >
-                FLIP CARD (1)
-            </button>
-            <p v-if="currency < 1" class="text-red-400 text-center mt-2 font-semibold">Out of Currency!</p>
-        </div>
+                <!-- Card Area -->
+                <div class="relative flex items-center justify-center py-4">
+                    <div class="card-container">
+                        <div class="card" :class="{ 'is-flipped': isFlipped }">
+                            <div class="card-face card-front" @click="handleCardTap">
+                                <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
+                                    <span class="text-3xl text-gray-600">?</span>
+                                </div>
+                                <p class="mt-4 text-gray-500 text-sm font-bold animate-pulse uppercase">Tap to Flip</p>
+                            </div>
+                            <div class="card-face card-back" :class="rarityClass">
+                                <div class="text-sm font-bold uppercase tracking-widest mb-1">{{ lastRank }}</div>
+                                <div class="text-xl font-bold mb-4 text-center px-4">{{ lastItem }}</div>
+                                <div class="w-full border-t border-gray-700 my-2"></div>
+                                <div class="text-lg font-mono">{{ lastStatName }}:</div>
+                                <div class="text-2xl font-bold text-white">{{ lastStatValue }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keep/Discard Buttons -->
+                <div class="h-24 flex items-center justify-center gap-12">
+                    <template v-if="isFlipped && !isAnimating">
+                        <button @click="discardItem"
+                            class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg active:scale-90 transition-transform bg-red-600 text-white">✕</button>
+                        <button @click="keepItem"
+                            class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg active:scale-90 transition-transform bg-green-600 text-white">✓</button>
+                    </template>
+                </div>
+            </template>
+
+            <!-- CHARACTER TAB -->
+            <template v-else>
+                <div class="w-full px-4 overflow-y-auto">
+                    <h2 class="text-xl font-bold text-yellow-500 mb-4 text-center">EQUIPMENT</h2>
+                    <div class="grid grid-cols-2 gap-3 pb-8">
+                        <div v-for="(item, slot) in character" :key="slot"
+                             class="bg-gray-800 p-3 rounded-lg border border-gray-700 flex flex-col items-center">
+                            <span class="text-xs text-gray-400 uppercase font-bold mb-1">{{ slot }}</span>
+                            <template v-if="item">
+                                <div class="text-sm font-bold" :class="item.rank === 'Rank D' ? 'text-blue-400' : 'text-gray-300'">
+                                    {{ item.rank }}
+                                </div>
+                                <div class="text-center font-bold text-white text-xs">{{ item.name }}</div>
+                                <div class="text-xs font-mono mt-1 text-yellow-500">{{ item.statName }}: {{ item.statValue }}</div>
+                            </template>
+                            <template v-else>
+                                <div class="text-gray-600 italic text-sm py-4">Empty</div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+        </main>
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
+        const { createApp, ref, computed, reactive } = Vue;
 
         createApp({
             setup() {
+                const activeTab = ref('gacha');
                 const currency = ref(100);
                 const isFlipped = ref(false);
                 const isAnimating = ref(false);
+
                 const lastItem = ref('');
                 const lastRank = ref('');
                 const lastStatName = ref('');
                 const lastStatValue = ref('');
+
+                const character = reactive({
+                    'Weapon': null,
+                    'Gloves': null,
+                    'Boots': null,
+                    'Helmet': null,
+                    'Chestplate': null,
+                    'Legguards': null,
+                    'Ring': null,
+                    'Amulet': null
+                });
 
                 const equipmentData = {
                     'Weapon': { stat: 'Attack', f: [1, 10], d: [11, 30] },
@@ -147,22 +186,16 @@
                     return lastRank.value === 'Rank D' ? 'rank-d' : 'rank-f';
                 });
 
-                const flipCard = () => {
-                    if (currency.value >= 1 && !isAnimating.value) {
-                        currency.value -= 1;
-                        isAnimating.value = true;
-
-                        // Reset card if it was already flipped
-                        if (isFlipped.value) {
-                            isFlipped.value = false;
-                            setTimeout(() => startFlip(), 300);
-                        } else {
-                            startFlip();
-                        }
+                const handleCardTap = () => {
+                    if (!isFlipped.value && currency.value >= 1 && !isAnimating.value) {
+                        flipCard();
                     }
                 };
 
-                const startFlip = () => {
+                const flipCard = () => {
+                    currency.value -= 1;
+                    isAnimating.value = true;
+
                     // Roll for Rarity (80% F, 20% D)
                     const rarityRoll = Math.random();
                     const rank = rarityRoll < 0.2 ? 'Rank D' : 'Rank F';
@@ -176,7 +209,6 @@
                     const [min, max] = data[rankKey];
                     let val = Math.random() * (max - min) + min;
 
-                    // Formatting
                     if (data.stat === 'Crit Rate') {
                         val = val.toFixed(2);
                     } else {
@@ -189,7 +221,6 @@
                     lastStatName.value = data.stat;
                     lastStatValue.value = val;
 
-                    // Trigger animation
                     isFlipped.value = true;
 
                     setTimeout(() => {
@@ -197,7 +228,33 @@
                     }, 600);
                 };
 
+                const keepItem = () => {
+                    character[lastItem.value] = {
+                        name: lastItem.value,
+                        rank: lastRank.value,
+                        statName: lastStatName.value,
+                        statValue: lastStatValue.value
+                    };
+                    autoNextFlip();
+                };
+
+                const discardItem = () => {
+                    autoNextFlip();
+                };
+
+                const autoNextFlip = () => {
+                    isFlipped.value = false;
+                    if (currency.value >= 1) {
+                        isAnimating.value = true;
+                        // Wait for flip back animation (600ms) then flip again
+                        setTimeout(() => {
+                            flipCard();
+                        }, 650);
+                    }
+                };
+
                 return {
+                    activeTab,
                     currency,
                     isFlipped,
                     isAnimating,
@@ -205,8 +262,11 @@
                     lastRank,
                     lastStatName,
                     lastStatValue,
+                    character,
                     rarityClass,
-                    flipCard
+                    handleCardTap,
+                    keepItem,
+                    discardItem
                 };
             }
         }).mount('#app');
