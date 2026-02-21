@@ -19,6 +19,7 @@
             perspective: 1000px;
             width: 200px;
             height: 280px;
+            transition: transform 0.5s ease-out, opacity 0.5s ease-out;
         }
         .card {
             width: 100%;
@@ -50,17 +51,28 @@
             cursor: pointer;
         }
         .card-back {
-            background: #2a2a2a;
+            background: white;
+            color: #1a1a1a;
             transform: rotateY(180deg);
+            transition: background-color 0.5s ease;
         }
-        .rank-f { color: #9ca3af; border-color: #4b5563; }
-        .rank-d { color: #60a5fa; border-color: #2563eb; }
+        .card-back.rank-e { border-color: #22c55e; border-width: 4px; }
+        .card-back.rank-f { border-color: #94a3b8; border-width: 4px; }
+
+        .fly-right {
+            transform: translateX(500px) rotate(20deg) !important;
+            opacity: 0;
+        }
+        .fly-left {
+            transform: translateX(-500px) rotate(-20deg) !important;
+            opacity: 0;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen select-none">
     <div id="app" v-cloak class="flex flex-col h-screen">
         <!-- Tabs -->
-        <div class="flex border-b border-gray-700">
+        <div class="flex border-b border-gray-700 bg-gray-900">
             <button @click="activeTab = 'gacha'"
                 :class="activeTab === 'gacha' ? 'text-yellow-500 border-yellow-500 bg-gray-800' : 'text-gray-500 border-transparent bg-gray-900'"
                 class="flex-1 py-3 text-center font-bold transition-colors border-b-2">
@@ -74,45 +86,72 @@
         </div>
 
         <!-- Main Content -->
-        <main class="flex-1 flex flex-col items-center justify-between py-6 overflow-hidden">
+        <main class="flex-1 flex flex-col items-center justify-between py-4 overflow-hidden">
 
             <!-- GACHA TAB -->
             <template v-if="activeTab === 'gacha'">
-                <div class="text-center">
-                    <div class="text-xl bg-gray-800 px-6 py-2 rounded-full border border-gray-700 inline-block">
-                        <span class="text-gray-400 mr-2">Currency:</span>
-                        <span class="font-mono text-yellow-400">{{ currency }}</span>
+                <div class="text-center flex flex-col items-center gap-2">
+                    <div class="text-lg bg-gray-800 px-4 py-1 rounded-full border border-gray-700 inline-block">
+                        <span class="text-gray-400 mr-2 text-sm">Currency:</span>
+                        <span class="font-mono text-yellow-400 font-bold">{{ currency }}</span>
+                    </div>
+                    <button @click="earnCurrency" class="text-[10px] bg-blue-600 px-3 py-1 rounded-full uppercase font-bold active:scale-95 transition-transform">
+                        Get Currency (+1-5)
+                    </button>
+                </div>
+
+                <!-- Equipped Preview -->
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] uppercase font-bold text-gray-500 mb-1">Currently Equipped</span>
+                    <div class="w-[160px] h-[80px] rounded-lg border-2 flex flex-col items-center justify-center mb-2 transition-all"
+                         :class="equippedItem ? 'border-solid border-gray-500 bg-gray-900' : 'border-dashed border-gray-600 bg-gray-800'">
+                        <template v-if="equippedItem">
+                            <div class="text-[10px] font-bold uppercase" :class="equippedItem.rank === 'Rank E' ? 'text-green-500' : 'text-gray-400'">
+                                {{ equippedItem.rank }} {{ equippedItem.name }}
+                            </div>
+                            <div class="text-sm font-bold mt-1" :class="compareStats(equippedItem.statValue, lastStatValue)">
+                                {{ equippedItem.statName }}: {{ equippedItem.statValue }}
+                            </div>
+                        </template>
+                        <template v-else>
+                            <span class="text-xs text-gray-600 italic">Empty Slot</span>
+                        </template>
                     </div>
                 </div>
 
                 <!-- Card Area -->
-                <div class="relative flex items-center justify-center py-4">
-                    <div class="card-container">
+                <div class="relative flex items-center justify-center py-2">
+                    <div class="card-container" :class="flyClass"
+                         @touchstart="handleTouchStart"
+                         @touchend="handleTouchEnd">
                         <div class="card" :class="{ 'is-flipped': isFlipped }">
                             <div class="card-face card-front" @click="handleCardTap">
                                 <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
-                                    <span class="text-3xl text-gray-600">?</span>
+                                    <span class="text-3xl text-gray-600 font-bold">?</span>
                                 </div>
-                                <p class="mt-4 text-gray-500 text-sm font-bold animate-pulse uppercase">Tap to Flip</p>
+                                <p class="mt-4 text-gray-500 text-[10px] font-bold animate-pulse uppercase tracking-widest">Tap to Flip</p>
                             </div>
-                            <div class="card-face card-back" :class="rarityClass">
-                                <div class="text-sm font-bold uppercase tracking-widest mb-1">{{ lastRank }}</div>
-                                <div class="text-xl font-bold mb-4 text-center px-4">{{ lastItem }}</div>
-                                <div class="w-full border-t border-gray-700 my-2"></div>
-                                <div class="text-lg font-mono">{{ lastStatName }}:</div>
-                                <div class="text-2xl font-bold text-white">{{ lastStatValue }}</div>
+                            <div class="card-face card-back" :class="rarityClass" :style="{ backgroundColor: backColor }">
+                                <div class="text-[10px] font-bold uppercase tracking-widest mb-1">{{ lastRank }}</div>
+                                <div class="text-lg font-bold mb-2 text-center px-4">{{ lastItem }}</div>
+                                <div class="w-full border-t border-gray-200 opacity-20 my-2"></div>
+                                <div class="text-sm font-mono opacity-70">{{ lastStatName }}:</div>
+                                <div class="text-2xl font-bold" :class="compareStats(lastStatValue, equippedItem ? equippedItem.statValue : null)">
+                                    {{ lastStatValue }}
+                                </div>
+                                <div v-if="!isAnimating" class="mt-4 text-[10px] opacity-40 uppercase font-bold">Swipe to Decide</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Keep/Discard Buttons -->
-                <div class="h-24 flex items-center justify-center gap-12">
+                <div class="h-20 flex items-center justify-center gap-12">
                     <template v-if="isFlipped && !isAnimating">
                         <button @click="discardItem"
-                            class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg active:scale-90 transition-transform bg-red-600 text-white">✕</button>
+                            class="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg active:scale-90 transition-transform bg-red-600 text-white">✕</button>
                         <button @click="keepItem"
-                            class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-lg active:scale-90 transition-transform bg-green-600 text-white">✓</button>
+                            class="w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg active:scale-90 transition-transform bg-green-600 text-white">✓</button>
                     </template>
                 </div>
             </template>
@@ -124,16 +163,16 @@
                     <div class="grid grid-cols-2 gap-3 pb-8">
                         <div v-for="(item, slot) in character" :key="slot"
                              class="bg-gray-800 p-3 rounded-lg border border-gray-700 flex flex-col items-center">
-                            <span class="text-xs text-gray-400 uppercase font-bold mb-1">{{ slot }}</span>
+                            <span class="text-[10px] text-gray-400 uppercase font-bold mb-1">{{ slot }}</span>
                             <template v-if="item">
-                                <div class="text-sm font-bold" :class="item.rank === 'Rank D' ? 'text-blue-400' : 'text-gray-300'">
+                                <div class="text-xs font-bold" :class="item.rank === 'Rank E' ? 'text-green-500' : 'text-gray-300'">
                                     {{ item.rank }}
                                 </div>
                                 <div class="text-center font-bold text-white text-xs">{{ item.name }}</div>
-                                <div class="text-xs font-mono mt-1 text-yellow-500">{{ item.statName }}: {{ item.statValue }}</div>
+                                <div class="text-[10px] font-mono mt-1 text-yellow-500">{{ item.statName }}: {{ item.statValue }}</div>
                             </template>
                             <template v-else>
-                                <div class="text-gray-600 italic text-sm py-4">Empty</div>
+                                <div class="text-gray-600 italic text-xs py-3">Empty</div>
                             </template>
                         </div>
                     </div>
@@ -152,11 +191,13 @@
                 const currency = ref(100);
                 const isFlipped = ref(false);
                 const isAnimating = ref(false);
+                const flyClass = ref('');
+                const backColor = ref('white');
 
                 const lastItem = ref('');
                 const lastRank = ref('');
                 const lastStatName = ref('');
-                const lastStatValue = ref('');
+                const lastStatValue = ref(null);
 
                 const character = reactive({
                     'Weapon': null,
@@ -170,21 +211,39 @@
                 });
 
                 const equipmentData = {
-                    'Weapon': { stat: 'Attack', f: [1, 10], d: [11, 30] },
-                    'Gloves': { stat: 'Attack Speed', f: [1, 10], d: [11, 30] },
-                    'Boots': { stat: 'Attack Range', f: [1, 10], d: [11, 30] },
-                    'Helmet': { stat: 'HP', f: [10, 100], d: [101, 300] },
-                    'Chestplate': { stat: 'Defense', f: [10, 100], d: [101, 300] },
-                    'Legguards': { stat: 'HP Regen', f: [1, 10], d: [11, 30] },
-                    'Ring': { stat: 'Crit Rate', f: [0.01, 2], d: [2.01, 4] },
-                    'Amulet': { stat: 'Crit Damage', f: [1, 20], d: [21, 60] }
+                    'Weapon': { stat: 'Attack', f: [1, 10], e: [11, 30] },
+                    'Gloves': { stat: 'Attack Speed', f: [1, 10], e: [11, 30] },
+                    'Boots': { stat: 'Attack Range', f: [1, 10], e: [11, 30] },
+                    'Helmet': { stat: 'HP', f: [10, 100], e: [101, 300] },
+                    'Chestplate': { stat: 'Defense', f: [10, 100], e: [101, 300] },
+                    'Legguards': { stat: 'HP Regen', f: [1, 10], e: [11, 30] },
+                    'Ring': { stat: 'Crit Rate', f: [0.01, 2], e: [2.01, 4] },
+                    'Amulet': { stat: 'Crit Damage', f: [1, 20], e: [21, 60] }
                 };
 
                 const slots = Object.keys(equipmentData);
 
                 const rarityClass = computed(() => {
-                    return lastRank.value === 'Rank D' ? 'rank-d' : 'rank-f';
+                    return lastRank.value === 'Rank E' ? 'rank-e' : 'rank-f';
                 });
+
+                const equippedItem = computed(() => {
+                    if (!lastItem.value) return null;
+                    return character[lastItem.value];
+                });
+
+                const compareStats = (val1, val2) => {
+                    if (val1 === null || val2 === null) return 'text-white';
+                    const v1 = parseFloat(val1);
+                    const v2 = parseFloat(val2);
+                    if (v1 > v2) return 'text-green-500';
+                    if (v1 < v2) return 'text-red-500';
+                    return 'text-white';
+                };
+
+                const earnCurrency = () => {
+                    currency.value += Math.floor(Math.random() * 5) + 1;
+                };
 
                 const handleCardTap = () => {
                     if (!isFlipped.value && currency.value >= 1 && !isAnimating.value) {
@@ -195,17 +254,16 @@
                 const flipCard = () => {
                     currency.value -= 1;
                     isAnimating.value = true;
+                    flyClass.value = '';
+                    backColor.value = 'white';
 
-                    // Roll for Rarity (80% F, 20% D)
                     const rarityRoll = Math.random();
-                    const rank = rarityRoll < 0.2 ? 'Rank D' : 'Rank F';
-                    const rankKey = rank === 'Rank D' ? 'd' : 'f';
+                    const rank = rarityRoll < 0.2 ? 'Rank E' : 'Rank F';
+                    const rankKey = rank === 'Rank E' ? 'e' : 'f';
 
-                    // Roll for Slot
                     const slot = slots[Math.floor(Math.random() * slots.length)];
                     const data = equipmentData[slot];
 
-                    // Roll for Stat Value
                     const [min, max] = data[rankKey];
                     let val = Math.random() * (max - min) + min;
 
@@ -215,7 +273,6 @@
                         val = Math.round(val);
                     }
 
-                    // Set values
                     lastRank.value = rank;
                     lastItem.value = slot;
                     lastStatName.value = data.stat;
@@ -223,33 +280,66 @@
 
                     isFlipped.value = true;
 
+                    // Transition to green if Rank E
+                    if (rank === 'Rank E') {
+                        setTimeout(() => {
+                            backColor.value = '#22c55e'; // green-500
+                        }, 300);
+                    }
+
                     setTimeout(() => {
                         isAnimating.value = false;
                     }, 600);
                 };
 
                 const keepItem = () => {
+                    if (isAnimating.value) return;
                     character[lastItem.value] = {
                         name: lastItem.value,
                         rank: lastRank.value,
                         statName: lastStatName.value,
                         statValue: lastStatValue.value
                     };
+                    flyClass.value = 'fly-right';
                     autoNextFlip();
                 };
 
                 const discardItem = () => {
+                    if (isAnimating.value) return;
+                    flyClass.value = 'fly-left';
                     autoNextFlip();
                 };
 
                 const autoNextFlip = () => {
-                    isFlipped.value = false;
-                    if (currency.value >= 1) {
-                        isAnimating.value = true;
-                        // Wait for flip back animation (600ms) then flip again
-                        setTimeout(() => {
-                            flipCard();
-                        }, 650);
+                    isAnimating.value = true;
+                    setTimeout(() => {
+                        isFlipped.value = false;
+                        if (currency.value >= 1) {
+                            setTimeout(() => {
+                                flipCard();
+                            }, 400);
+                        } else {
+                            isAnimating.value = false;
+                        }
+                    }, 500);
+                };
+
+                // Swipe Logic
+                let touchStartX = 0;
+                const handleTouchStart = (e) => {
+                    if (!isFlipped.value || isAnimating.value) return;
+                    touchStartX = e.touches[0].clientX;
+                };
+
+                const handleTouchEnd = (e) => {
+                    if (!isFlipped.value || isAnimating.value) return;
+                    const touchEndX = e.changedTouches[0].clientX;
+                    const deltaX = touchEndX - touchStartX;
+
+                    if (deltaX > 50) {
+                        keepItem();
+                    } else if (deltaX < -50) {
+                        discardItem();
                     }
                 };
 
@@ -264,9 +354,16 @@
                     lastStatValue,
                     character,
                     rarityClass,
+                    flyClass,
+                    backColor,
+                    equippedItem,
+                    earnCurrency,
                     handleCardTap,
                     keepItem,
-                    discardItem
+                    discardItem,
+                    compareStats,
+                    handleTouchStart,
+                    handleTouchEnd
                 };
             }
         }).mount('#app');
