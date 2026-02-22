@@ -15,23 +15,56 @@
             overflow: hidden;
             touch-action: manipulation;
         }
-        .card-container {
-            perspective: 1000px;
+
+        /* Animations */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .shake {
+            animation: shake 0.5s infinite;
+        }
+
+        .card-area {
+            position: relative;
             width: 200px;
             height: 280px;
-            position: relative;
+            perspective: 1000px;
         }
+
         .card-stack-bg {
             position: absolute;
             width: 100%;
             height: 100%;
             border-radius: 12px;
             background: linear-gradient(135deg, #333, #111);
-            border: 2px solid #444;
-            z-index: -1;
+            border: 4px solid #444;
+            z-index: 0;
         }
         .card-stack-bg-1 { transform: translate(4px, 4px); opacity: 0.8; }
         .card-stack-bg-2 { transform: translate(8px, 8px); opacity: 0.6; }
+
+        .card-wrapper {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        /* Transitions */
+        .fly-transition {
+            transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+        }
 
         .card {
             width: 100%;
@@ -68,18 +101,12 @@
             transform: rotateY(180deg);
         }
 
-        /* Rarity Styles */
         .rank-f-back { background-color: #f8fafc; border-color: #94a3b8; }
         .rank-e-back { background-color: #dcfce7; border-color: #22c55e; }
 
-        /* Glow Effects */
         .glow-white { box-shadow: 0 0 25px 8px rgba(255, 255, 255, 0.6); }
         .glow-green { box-shadow: 0 0 25px 8px rgba(34, 197, 94, 0.8); }
 
-        /* Flying Animations */
-        .fly-container {
-            transition: transform 0.5s ease-out, opacity 0.5s ease-out;
-        }
         .fly-right {
             transform: translateX(500px) rotate(20deg) !important;
             opacity: 0;
@@ -141,15 +168,17 @@
                 </div>
 
                 <!-- Card Area -->
-                <div class="relative flex items-center justify-center py-4">
-                    <!-- Visual Stack Layers -->
-                    <div class="card-stack-bg card-stack-bg-2"></div>
+                <div class="card-area my-4">
+                    <!-- The card always under the active one -->
+                    <div class="card-stack-bg"></div>
                     <div class="card-stack-bg card-stack-bg-1"></div>
+                    <div class="card-stack-bg card-stack-bg-2"></div>
 
-                    <div class="card-container fly-container" :class="flyClass"
+                    <!-- Active Card -->
+                    <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying }]"
                          @touchstart="handleTouchStart"
                          @touchend="handleTouchEnd">
-                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green' }">
+                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green', 'shake': isShaking }">
                             <div class="card-face card-front" @click="handleCardTap">
                                 <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
                                     <span class="text-3xl text-gray-600 font-bold">?</span>
@@ -172,7 +201,7 @@
                     </div>
                 </div>
 
-                <!-- Buttons -->
+                <!-- Decision Controls (Fallback for non-swipe) -->
                 <div class="h-20 flex items-center justify-center gap-12">
                     <template v-if="isFlipped && !isAnimating">
                         <button @click="discardItem"
@@ -219,8 +248,10 @@
                 const isFlipped = ref(false);
                 const isAnimating = ref(false);
                 const isAnticipating = ref(false);
-                const anticipation = ref(null); // 'white' or 'green'
+                const anticipation = ref(null);
+                const isShaking = ref(false);
                 const flyClass = ref('');
+                const isFlying = ref(false);
 
                 const lastItem = ref('');
                 const lastRank = ref('');
@@ -228,14 +259,8 @@
                 const lastStatValue = ref(null);
 
                 const character = reactive({
-                    'Weapon': null,
-                    'Gloves': null,
-                    'Boots': null,
-                    'Helmet': null,
-                    'Chestplate': null,
-                    'Legguards': null,
-                    'Ring': null,
-                    'Amulet': null
+                    'Weapon': null, 'Gloves': null, 'Boots': null, 'Helmet': null,
+                    'Chestplate': null, 'Legguards': null, 'Ring': null, 'Amulet': null
                 });
 
                 const equipmentData = {
@@ -276,10 +301,14 @@
                 };
 
                 const startGachaSequence = async () => {
+                    if (currency.value < 1) {
+                        isAnimating.value = false;
+                        return;
+                    }
                     currency.value -= 1;
                     isAnticipating.value = true;
+                    isShaking.value = true;
 
-                    // Pre-calculate result
                     const rarityRoll = Math.random();
                     const rank = rarityRoll < 0.2 ? 'Rank E' : 'Rank F';
                     const rankKey = rank === 'Rank E' ? 'e' : 'f';
@@ -289,74 +318,74 @@
                     let val = Math.random() * (max - min) + min;
                     val = data.stat === 'Crit Rate' ? val.toFixed(2) : Math.round(val);
 
-                    // Step 1: White Glow
+                    // Anticipation Phases
                     anticipation.value = 'white';
                     await new Promise(r => setTimeout(r, 600));
 
-                    // Step 2: If Rank E, transition to Green Glow
                     if (rank === 'Rank E') {
                         anticipation.value = 'green';
                         await new Promise(r => setTimeout(r, 600));
                     }
 
-                    // Step 3: Reveal and Flip
+                    // Reveal
                     lastRank.value = rank;
                     lastItem.value = slot;
                     lastStatName.value = data.stat;
                     lastStatValue.value = val;
 
+                    isShaking.value = false;
                     isFlipped.value = true;
                     isAnticipating.value = false;
                     anticipation.value = null;
                 };
 
                 const keepItem = () => {
-                    if (isAnimating.value) return;
+                    if (isAnimating.value || !isFlipped.value) return;
                     character[lastItem.value] = {
-                        name: lastItem.value,
-                        rank: lastRank.value,
-                        statName: lastStatName.value,
-                        statValue: lastStatValue.value
+                        name: lastItem.value, rank: lastRank.value,
+                        statName: lastStatName.value, statValue: lastStatValue.value
                     };
                     flyAway('fly-right');
                 };
 
                 const discardItem = () => {
-                    if (isAnimating.value) return;
+                    if (isAnimating.value || !isFlipped.value) return;
                     flyAway('fly-left');
                 };
 
                 const flyAway = (dirClass) => {
                     isAnimating.value = true;
+                    isFlying.value = true;
                     flyClass.value = dirClass;
-                    setTimeout(() => {
-                        // Reset for next card
-                        isFlipped.value = false;
+
+                    setTimeout(async () => {
+                        // Reset Active Card (Instant, while hidden)
+                        isFlying.value = false;
                         flyClass.value = '';
+                        isFlipped.value = false;
+
+                        // Auto-start next sequence
+                        await startGachaSequence();
                         isAnimating.value = false;
-                        // Content stays but is hidden behind the face-down card
                     }, 500);
                 };
 
-                // Swipe Logic
                 let touchStartX = 0;
                 const handleTouchStart = (e) => {
                     if (!isFlipped.value || isAnimating.value) return;
                     touchStartX = e.touches[0].clientX;
                 };
-
                 const handleTouchEnd = (e) => {
                     if (!isFlipped.value || isAnimating.value) return;
-                    const touchEndX = e.changedTouches[0].clientX;
-                    const deltaX = touchEndX - touchStartX;
+                    const deltaX = e.changedTouches[0].clientX - touchStartX;
                     if (deltaX > 50) keepItem();
                     else if (deltaX < -50) discardItem();
                 };
 
                 return {
                     activeTab, currency, isFlipped, isAnimating, isAnticipating, anticipation,
-                    lastItem, lastRank, lastStatName, lastStatValue, character,
-                    flyClass, equippedItem, handleCardTap, keepItem, discardItem,
+                    isShaking, lastItem, lastRank, lastStatName, lastStatValue, character,
+                    flyClass, isFlying, equippedItem, handleCardTap, keepItem, discardItem,
                     compareStats, handleTouchStart, handleTouchEnd, earnCurrency
                 };
             }
