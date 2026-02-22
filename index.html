@@ -119,6 +119,64 @@
             transform: translateX(-500px) rotate(-20deg) !important;
             opacity: 0;
         }
+
+        /* Battle Styles */
+        .battle-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #111;
+            z-index: 100;
+            overflow: hidden;
+        }
+        .hero {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid white;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .enemy {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid #7f1d1d;
+        }
+        .projectile {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #fbbf24;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px #f59e0b;
+        }
+        .health-bar-container {
+            position: absolute;
+            width: 30px;
+            height: 4px;
+            background-color: #444;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .health-bar-fill {
+            height: 100%;
+            background-color: #22c55e;
+            transition: width 0.2s;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen select-none">
@@ -135,10 +193,15 @@
                 class="flex-1 py-3 text-center font-bold transition-colors border-b-2">
                 CHARACTER
             </button>
+            <button @click="activeTab = 'battle'"
+                :class="activeTab === 'battle' ? 'text-yellow-500 border-yellow-500 bg-gray-800' : 'text-gray-500 border-transparent bg-gray-900'"
+                class="flex-1 py-3 text-center font-bold transition-colors border-b-2">
+                BATTLE
+            </button>
         </div>
 
         <!-- Main Content -->
-        <main class="flex-1 flex flex-col items-center justify-between py-4 overflow-hidden">
+        <main class="flex-1 flex flex-col items-center justify-between py-4 overflow-hidden relative">
 
             <!-- GACHA TAB -->
             <template v-if="activeTab === 'gacha'">
@@ -173,12 +236,10 @@
 
                 <!-- Card Area -->
                 <div class="card-area my-4">
-                    <!-- The card always under the active one -->
                     <div class="card-stack-bg"></div>
                     <div class="card-stack-bg card-stack-bg-1"></div>
                     <div class="card-stack-bg card-stack-bg-2"></div>
 
-                    <!-- Active Card -->
                     <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying && !noTransition, 'shake': isShaking, 'no-transition': noTransition }]"
                          @touchstart="handleTouchStart"
                          @touchend="handleTouchEnd">
@@ -205,7 +266,6 @@
                     </div>
                 </div>
 
-                <!-- Decision Controls (Fallback for non-swipe) -->
                 <div class="h-20 flex items-center justify-center gap-12">
                     <template v-if="isFlipped && !isAnimating">
                         <button @click="discardItem"
@@ -217,7 +277,7 @@
             </template>
 
             <!-- CHARACTER TAB -->
-            <template v-else>
+            <template v-else-if="activeTab === 'character'">
                 <div class="w-full px-4 overflow-y-auto">
                     <h2 class="text-xl font-bold text-yellow-500 mb-4 text-center">EQUIPMENT</h2>
                     <div class="grid grid-cols-2 gap-3 pb-8">
@@ -239,11 +299,95 @@
                 </div>
             </template>
 
+            <!-- BATTLE TAB -->
+            <template v-else-if="activeTab === 'battle'">
+                <div class="flex flex-col items-center justify-center h-full gap-8">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl font-bold text-blue-400">HERO READY</h2>
+                        <p class="text-gray-400 text-sm">Equip items to increase your power!</p>
+                    </div>
+
+                    <button @click="startBattle" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-full shadow-lg transform active:scale-95 transition-all text-xl uppercase tracking-widest border-b-4 border-blue-800">
+                        Start Battle
+                    </button>
+
+                    <div class="grid grid-cols-2 gap-4 w-full px-8 text-sm">
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <span class="text-gray-500 uppercase font-bold text-[10px]">Max HP</span>
+                            <div class="text-white font-bold">{{ heroMaxHP }}</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <span class="text-gray-500 uppercase font-bold text-[10px]">XP</span>
+                            <div class="text-yellow-500 font-bold">{{ xp }}</div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
         </main>
+
+        <!-- BATTLE SCREEN OVERLAY -->
+        <div v-if="isBattleActive" class="battle-screen flex flex-col">
+            <!-- HUD -->
+            <div class="p-4 bg-gray-900 border-b border-gray-700 flex flex-col gap-2 shadow-xl z-[110]">
+                <div class="flex justify-between items-center">
+                    <div class="flex flex-col w-1/2">
+                        <div class="flex justify-between text-[10px] font-bold uppercase mb-1">
+                            <span class="text-gray-400">Hero Health</span>
+                            <span class="text-white">{{ heroHP }} / {{ heroMaxHP }}</span>
+                        </div>
+                        <div class="w-full h-3 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
+                            <div class="h-full bg-green-500 transition-all duration-300" :style="{ width: (heroHP / heroMaxHP * 100) + '%' }"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="text-center">
+                            <div class="text-[10px] text-gray-500 uppercase font-bold">Currency</div>
+                            <div class="text-yellow-500 font-bold text-sm">{{ currency }}</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-[10px] text-gray-500 uppercase font-bold">XP</div>
+                            <div class="text-blue-400 font-bold text-sm">{{ xp }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BATTLEFIELD -->
+            <div class="flex-1 relative" ref="battlefield">
+                <div class="hero"></div>
+
+                <!-- Enemies -->
+                <div v-for="enemy in enemies" :key="enemy.id" class="enemy"
+                     :style="{ left: enemy.x + 'px', top: enemy.y + 'px' }">
+                    <div class="health-bar-container">
+                        <div class="health-bar-fill" :style="{ width: (enemy.hp / enemy.maxHp * 100) + '%' }"></div>
+                    </div>
+                </div>
+
+                <!-- Projectiles -->
+                <div v-for="proj in projectiles" :key="proj.id" class="projectile"
+                     :style="{ left: proj.x + 'px', top: proj.y + 'px' }"></div>
+            </div>
+
+            <!-- FOOTER INFO -->
+            <div class="p-2 bg-gray-900/50 text-center text-[10px] text-gray-600 font-bold">
+                BATTLE IN PROGRESS - AUTO FIRING ACTIVE
+            </div>
+
+            <!-- Result Modal -->
+            <div v-if="battleResult" class="absolute inset-0 bg-black/80 flex items-center justify-center z-[120] p-8">
+                <div class="bg-gray-900 border-2 border-yellow-500 p-8 rounded-2xl text-center space-y-6 max-w-sm w-full">
+                    <h2 class="text-4xl font-bold" :class="battleResult === 'VICTORY' ? 'text-yellow-500' : 'text-red-500'">{{ battleResult }}</h2>
+                    <div class="text-gray-400">Battle concluded. Enemies defeated: {{ enemiesDefeated }}/20</div>
+                    <button @click="closeBattle" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-8 rounded-full uppercase tracking-widest w-full">Continue</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, reactive } = Vue;
+        const { createApp, ref, computed, reactive, onMounted, onUnmounted } = Vue;
 
         createApp({
             setup() {
@@ -281,6 +425,36 @@
 
                 const slots = Object.keys(equipmentData);
 
+                // Combat Stats
+                const xp = ref(0);
+                const heroHP = ref(20);
+                const heroMaxHP = computed(() => {
+                    let hp = 20;
+                    if (character['Helmet']) hp += character['Helmet'].statValue;
+                    if (character['Chestplate']) hp += character['Chestplate'].statValue;
+                    return hp;
+                });
+                const attackSpeed = computed(() => {
+                    let spd = 1.0; // attacks per second
+                    if (character['Gloves']) spd += character['Gloves'].statValue / 10;
+                    return spd;
+                });
+                const attackPower = computed(() => {
+                    let atk = 5;
+                    if (character['Weapon']) atk += character['Weapon'].statValue;
+                    return atk;
+                });
+
+                const isBattleActive = ref(false);
+                const battleResult = ref(null);
+                const enemies = ref([]);
+                const projectiles = ref([]);
+                const enemiesDefeated = ref(0);
+                const enemiesSpawned = ref(0);
+                let battleLoop = null;
+                let spawnInterval = null;
+                let lastAttackTime = 0;
+
                 const equippedItem = computed(() => {
                     if (!lastItem.value) return null;
                     return character[lastItem.value];
@@ -290,7 +464,6 @@
                     if (val1 === null || val2 === null) return isEquippedPreview ? 'text-white' : 'text-blue-600';
                     const v1 = parseFloat(val1);
                     const v2 = parseFloat(val2);
-
                     if (v1 > v2) return 'text-green-600';
                     if (v1 < v2) return 'text-red-600';
                     return isEquippedPreview ? 'text-white' : 'text-gray-400';
@@ -314,7 +487,6 @@
                     currency.value -= 1;
                     isAnticipating.value = true;
                     isShaking.value = true;
-
                     const rarityRoll = Math.random();
                     const rank = rarityRoll < 0.2 ? 'Rank E' : 'Rank F';
                     const rankKey = rank === 'Rank E' ? 'e' : 'f';
@@ -324,21 +496,17 @@
                     let val = Math.random() * (max - min) + min;
                     val = data.stat === 'Crit Rate' ? val.toFixed(2) : Math.round(val);
 
-                    // Anticipation Phases
                     anticipation.value = 'white';
                     await new Promise(r => setTimeout(r, 600));
-
                     if (rank === 'Rank E') {
                         anticipation.value = 'green';
                         await new Promise(r => setTimeout(r, 600));
                     }
 
-                    // Reveal
                     lastRank.value = rank;
                     lastItem.value = slot;
                     lastStatName.value = data.stat;
                     lastStatValue.value = val;
-
                     isShaking.value = false;
                     isFlipped.value = true;
                     isAnticipating.value = false;
@@ -363,25 +531,160 @@
                     isAnimating.value = true;
                     isFlying.value = true;
                     flyClass.value = dirClass;
-
                     setTimeout(async () => {
-                        // Reset Active Card (Instant, while hidden/offscreen)
                         noTransition.value = true;
                         isFlying.value = false;
                         flyClass.value = '';
                         isFlipped.value = false;
-
-                        // Force a reflow to ensure the no-transition reset is applied immediately
                         void document.querySelector('.card-wrapper').offsetWidth;
-
-                        // Small delay to ensure the DOM is updated before turning transitions back on
                         setTimeout(async () => {
                             noTransition.value = false;
-                            // Auto-start next sequence
                             await startGachaSequence();
                             isAnimating.value = false;
                         }, 50);
                     }, 500);
+                };
+
+                // Battle Logic
+                const startBattle = () => {
+                    isBattleActive.value = true;
+                    battleResult.value = null;
+                    enemies.value = [];
+                    projectiles.value = [];
+                    enemiesDefeated.value = 0;
+                    enemiesSpawned.value = 0;
+                    heroHP.value = heroMaxHP.value;
+                    lastAttackTime = performance.now();
+
+                    spawnInterval = setInterval(() => {
+                        if (enemiesSpawned.value < 20) {
+                            spawnEnemy();
+                        } else if (enemies.value.length === 0) {
+                            clearInterval(spawnInterval);
+                            battleResult.value = 'VICTORY';
+                        }
+                    }, 1000);
+
+                    requestAnimationFrame(updateBattle);
+                };
+
+                const spawnEnemy = () => {
+                    enemiesSpawned.value++;
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.max(window.innerWidth, window.innerHeight) / 1.5;
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+
+                    enemies.value.push({
+                        id: Date.now() + Math.random(),
+                        x: centerX + Math.cos(angle) * radius,
+                        y: centerY + Math.sin(angle) * radius,
+                        hp: 10,
+                        maxHp: 10,
+                        speed: 1
+                    });
+                };
+
+                const updateBattle = (time) => {
+                    if (!isBattleActive.value || battleResult.value) return;
+
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+
+                    // Update Enemies
+                    enemies.value.forEach((enemy, index) => {
+                        const dx = centerX - enemy.x;
+                        const dy = centerY - enemy.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist > 20) {
+                            enemy.x += (dx / dist) * enemy.speed;
+                            enemy.y += (dy / dist) * enemy.speed;
+                        } else {
+                            // Enemy reached hero
+                            heroHP.value -= 5;
+                            enemies.value.splice(index, 1);
+                            if (heroHP.value <= 0) {
+                                heroHP.value = 0;
+                                battleResult.value = 'DEFEAT';
+                            }
+                        }
+                    });
+
+                    // Hero Auto Attack
+                    if (enemies.value.length > 0) {
+                        const timeSinceLast = time - lastAttackTime;
+                        if (timeSinceLast > 1000 / attackSpeed.value) {
+                            lastAttackTime = time;
+                            fireProjectile();
+                        }
+                    }
+
+                    // Update Projectiles
+                    projectiles.value.forEach((proj, pIndex) => {
+                        const dx = proj.tx - proj.x;
+                        const dy = proj.ty - proj.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const speed = 5;
+
+                        if (dist > speed) {
+                            proj.x += (dx / dist) * speed;
+                            proj.y += (dy / dist) * speed;
+
+                            // Collision check
+                            enemies.value.forEach((enemy, eIndex) => {
+                                const edx = enemy.x - proj.x;
+                                const edy = enemy.y - proj.y;
+                                const edist = Math.sqrt(edx * edx + edy * edy);
+                                if (edist < 15) {
+                                    enemy.hp -= attackPower.value;
+                                    projectiles.value.splice(pIndex, 1);
+                                    if (enemy.hp <= 0) {
+                                        enemies.value.splice(eIndex, 1);
+                                        enemiesDefeated.value++;
+                                        currency.value += 1;
+                                        xp.value += 10;
+                                    }
+                                }
+                            });
+                        } else {
+                            projectiles.value.splice(pIndex, 1);
+                        }
+                    });
+
+                    requestAnimationFrame(updateBattle);
+                };
+
+                const fireProjectile = () => {
+                    if (enemies.value.length === 0) return;
+
+                    // Target nearest enemy
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    let nearest = enemies.value[0];
+                    let minDist = Infinity;
+
+                    enemies.value.forEach(e => {
+                        const dist = Math.sqrt((e.x - centerX)**2 + (e.y - centerY)**2);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearest = e;
+                        }
+                    });
+
+                    projectiles.value.push({
+                        id: Date.now() + Math.random(),
+                        x: centerX,
+                        y: centerY,
+                        tx: nearest.x,
+                        ty: nearest.y
+                    });
+                };
+
+                const closeBattle = () => {
+                    isBattleActive.value = false;
+                    battleResult.value = null;
+                    clearInterval(spawnInterval);
                 };
 
                 let touchStartX = 0;
@@ -399,8 +702,10 @@
                 return {
                     activeTab, currency, isFlipped, isAnimating, isAnticipating, anticipation,
                     isShaking, lastItem, lastRank, lastStatName, lastStatValue, character,
-                    flyClass, isFlying, noTransition, equippedItem, handleCardTap, keepItem, discardItem,
-                    compareStats, handleTouchStart, handleTouchEnd, earnCurrency
+                    flyClass, isFlying, noTransition, equippedItem, earnCurrency, handleCardTap,
+                    keepItem, discardItem, compareStats, handleTouchStart, handleTouchEnd,
+                    xp, heroHP, heroMaxHP, isBattleActive, startBattle, enemies, projectiles,
+                    battleResult, enemiesDefeated, closeBattle
                 };
             }
         }).mount('#app');
