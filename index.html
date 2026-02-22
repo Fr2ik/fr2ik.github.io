@@ -133,8 +133,8 @@
         }
         .hero {
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 10px;
+            height: 10px;
             background-color: #3b82f6;
             border-radius: 50%;
             top: 50%;
@@ -142,6 +142,18 @@
             transform: translate(-50%, -50%);
             border: 2px solid white;
             box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            z-index: 10;
+        }
+        .range-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            background-color: rgba(255, 255, 255, 0.05);
         }
         .enemy {
             position: absolute;
@@ -356,6 +368,7 @@
             <!-- BATTLEFIELD -->
             <div class="flex-1 relative" ref="battlefield">
                 <div class="hero"></div>
+                <div class="range-circle" :style="{ width: (attackRange * 2) + 'px', height: (attackRange * 2) + 'px' }"></div>
 
                 <!-- Enemies -->
                 <div v-for="enemy in enemies" :key="enemy.id" class="enemy"
@@ -389,7 +402,7 @@
     <script>
         const { createApp, ref, computed, reactive, onMounted, onUnmounted } = Vue;
 
-        createApp({
+        const app = createApp({
             setup() {
                 const activeTab = ref('gacha');
                 const currency = ref(5);
@@ -445,7 +458,18 @@
                     return atk;
                 });
 
+                const attackRange = computed(() => {
+                    let rng = 15; // base range
+                    if (character['Boots']) {
+                        // User: "to set the character's range, use equipment's number x 2px, if it's 10 then the range should be 10 px"
+                        // Interpretation: Diameter = number * 2, so Radius = number.
+                        rng = character['Boots'].statValue;
+                    }
+                    return rng;
+                });
+
                 const isBattleActive = ref(false);
+                const battlefield = ref(null);
                 const battleResult = ref(null);
                 const enemies = ref([]);
                 const projectiles = ref([]);
@@ -586,10 +610,10 @@
                 };
 
                 const updateBattle = (time) => {
-                    if (!isBattleActive.value || battleResult.value) return;
+                    if (!isBattleActive.value || battleResult.value || !battlefield.value) return;
 
-                    const centerX = window.innerWidth / 2;
-                    const centerY = window.innerHeight / 2;
+                    const centerX = battlefield.value.clientWidth / 2;
+                    const centerY = battlefield.value.clientHeight / 2;
 
                     // Update Enemies
                     enemies.value.forEach((enemy, index) => {
@@ -597,11 +621,11 @@
                         const dy = centerY - enemy.y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        if (dist > 20) {
+                        if (dist > 5) {
                             enemy.x += (dx / dist) * enemy.speed;
                             enemy.y += (dy / dist) * enemy.speed;
                         } else {
-                            // Enemy reached hero
+                            // Enemy reached hero (5px is hero radius)
                             heroHP.value -= 5;
                             enemies.value.splice(index, 1);
                             if (heroHP.value <= 0) {
@@ -615,8 +639,22 @@
                     if (enemies.value.length > 0) {
                         const timeSinceLast = time - lastAttackTime;
                         if (timeSinceLast > 1000 / attackSpeed.value) {
-                            lastAttackTime = time;
-                            fireProjectile();
+                            // Find nearest enemy
+                            let nearest = null;
+                            let minDist = Infinity;
+
+                            enemies.value.forEach(e => {
+                                const dist = Math.sqrt((e.x - centerX)**2 + (e.y - centerY)**2);
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    nearest = e;
+                                }
+                            });
+
+                            if (nearest && minDist <= attackRange.value) {
+                                lastAttackTime = time;
+                                fireProjectile(nearest, centerX, centerY);
+                            }
                         }
                     }
 
@@ -655,29 +693,13 @@
                     requestAnimationFrame(updateBattle);
                 };
 
-                const fireProjectile = () => {
-                    if (enemies.value.length === 0) return;
-
-                    // Target nearest enemy
-                    const centerX = window.innerWidth / 2;
-                    const centerY = window.innerHeight / 2;
-                    let nearest = enemies.value[0];
-                    let minDist = Infinity;
-
-                    enemies.value.forEach(e => {
-                        const dist = Math.sqrt((e.x - centerX)**2 + (e.y - centerY)**2);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            nearest = e;
-                        }
-                    });
-
+                const fireProjectile = (target, centerX, centerY) => {
                     projectiles.value.push({
                         id: Date.now() + Math.random(),
                         x: centerX,
                         y: centerY,
-                        tx: nearest.x,
-                        ty: nearest.y
+                        tx: target.x,
+                        ty: target.y
                     });
                 };
 
@@ -704,11 +726,12 @@
                     isShaking, lastItem, lastRank, lastStatName, lastStatValue, character,
                     flyClass, isFlying, noTransition, equippedItem, earnCurrency, handleCardTap,
                     keepItem, discardItem, compareStats, handleTouchStart, handleTouchEnd,
-                    xp, heroHP, heroMaxHP, isBattleActive, startBattle, enemies, projectiles,
-                    battleResult, enemiesDefeated, closeBattle
+                    xp, heroHP, heroMaxHP, isBattleActive, battlefield, startBattle, enemies, projectiles,
+                    battleResult, enemiesDefeated, closeBattle, attackRange
                 };
             }
-        }).mount('#app');
+        });
+        window.app = app.mount('#app');
     </script>
 </body>
 </html>
