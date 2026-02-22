@@ -66,6 +66,10 @@
             transition: transform 0.5s ease-out, opacity 0.5s ease-out;
         }
 
+        .no-transition {
+            transition: none !important;
+        }
+
         .card {
             width: 100%;
             height: 100%;
@@ -175,10 +179,10 @@
                     <div class="card-stack-bg card-stack-bg-2"></div>
 
                     <!-- Active Card -->
-                    <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying, 'shake': isShaking }]"
+                    <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying && !noTransition, 'shake': isShaking, 'no-transition': noTransition }]"
                          @touchstart="handleTouchStart"
                          @touchend="handleTouchEnd">
-                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green' }">
+                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green', 'no-transition': noTransition }">
                             <div class="card-face card-front" @click="handleCardTap">
                                 <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
                                     <span class="text-3xl text-gray-600 font-bold">?</span>
@@ -244,7 +248,7 @@
         createApp({
             setup() {
                 const activeTab = ref('gacha');
-                const currency = ref(100);
+                const currency = ref(5);
                 const isFlipped = ref(false);
                 const isAnimating = ref(false);
                 const isAnticipating = ref(false);
@@ -252,6 +256,7 @@
                 const isShaking = ref(false);
                 const flyClass = ref('');
                 const isFlying = ref(false);
+                const noTransition = ref(false);
 
                 const lastItem = ref('');
                 const lastRank = ref('');
@@ -360,14 +365,22 @@
                     flyClass.value = dirClass;
 
                     setTimeout(async () => {
-                        // Reset Active Card (Instant, while hidden)
+                        // Reset Active Card (Instant, while hidden/offscreen)
+                        noTransition.value = true;
                         isFlying.value = false;
                         flyClass.value = '';
                         isFlipped.value = false;
 
-                        // Auto-start next sequence
-                        await startGachaSequence();
-                        isAnimating.value = false;
+                        // Force a reflow to ensure the no-transition reset is applied immediately
+                        void document.querySelector('.card-wrapper').offsetWidth;
+
+                        // Small delay to ensure the DOM is updated before turning transitions back on
+                        setTimeout(async () => {
+                            noTransition.value = false;
+                            // Auto-start next sequence
+                            await startGachaSequence();
+                            isAnimating.value = false;
+                        }, 50);
                     }, 500);
                 };
 
@@ -386,7 +399,7 @@
                 return {
                     activeTab, currency, isFlipped, isAnimating, isAnticipating, anticipation,
                     isShaking, lastItem, lastRank, lastStatName, lastStatValue, character,
-                    flyClass, isFlying, equippedItem, handleCardTap, keepItem, discardItem,
+                    flyClass, isFlying, noTransition, equippedItem, handleCardTap, keepItem, discardItem,
                     compareStats, handleTouchStart, handleTouchEnd, earnCurrency
                 };
             }
