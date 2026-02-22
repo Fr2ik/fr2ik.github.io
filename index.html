@@ -157,7 +157,7 @@
                             <div class="text-[10px] font-bold uppercase" :class="equippedItem.rank === 'Rank E' ? 'text-green-500' : 'text-gray-400'">
                                 {{ equippedItem.rank }} {{ equippedItem.name }}
                             </div>
-                            <div class="text-sm font-bold mt-1 text-white">
+                            <div class="text-sm font-bold mt-1" :class="compareStats(equippedItem.statValue, lastStatValue, true)">
                                 {{ equippedItem.statName }}: {{ equippedItem.statValue }}
                             </div>
                         </template>
@@ -175,10 +175,10 @@
                     <div class="card-stack-bg card-stack-bg-2"></div>
 
                     <!-- Active Card -->
-                    <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying }]"
+                    <div class="card-wrapper" :class="[flyClass, { 'fly-transition': isFlying, 'shake': isShaking }]"
                          @touchstart="handleTouchStart"
                          @touchend="handleTouchEnd">
-                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green', 'shake': isShaking }">
+                        <div class="card" :class="{ 'is-flipped': isFlipped, 'glow-white': anticipation === 'white', 'glow-green': anticipation === 'green' }">
                             <div class="card-face card-front" @click="handleCardTap">
                                 <div class="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center">
                                     <span class="text-3xl text-gray-600 font-bold">?</span>
@@ -192,7 +192,7 @@
                                 <div class="text-lg font-bold mb-2 text-center px-4 text-gray-900">{{ lastItem }}</div>
                                 <div class="w-full border-t border-gray-900 opacity-10 my-2"></div>
                                 <div class="text-sm font-mono text-gray-600">{{ lastStatName }}:</div>
-                                <div class="text-3xl font-bold" :class="compareStats(lastStatValue, equippedItem ? equippedItem.statValue : null)">
+                                <div class="text-3xl font-bold" :class="compareStats(lastStatValue, equippedItem ? equippedItem.statValue : null, false)">
                                     {{ lastStatValue }}
                                 </div>
                                 <div class="mt-4 text-[10px] text-gray-400 uppercase font-bold">Swipe to Decide</div>
@@ -281,13 +281,14 @@
                     return character[lastItem.value];
                 });
 
-                const compareStats = (newVal, oldVal) => {
-                    if (oldVal === null) return 'text-blue-600';
-                    const n = parseFloat(newVal);
-                    const o = parseFloat(oldVal);
-                    if (n > o) return 'text-green-600';
-                    if (n < o) return 'text-red-600';
-                    return 'text-gray-400';
+                const compareStats = (val1, val2, isEquippedPreview) => {
+                    if (val1 === null || val2 === null) return isEquippedPreview ? 'text-white' : 'text-blue-600';
+                    const v1 = parseFloat(val1);
+                    const v2 = parseFloat(val2);
+
+                    if (v1 > v2) return 'text-green-600';
+                    if (v1 < v2) return 'text-red-600';
+                    return isEquippedPreview ? 'text-white' : 'text-gray-400';
                 };
 
                 const earnCurrency = () => {
