@@ -189,6 +189,33 @@
             background-color: #22c55e;
             transition: width 0.2s;
         }
+
+        .damage-popup {
+            position: absolute;
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 200;
+            animation: float-up 0.8s ease-out forwards;
+        }
+        @keyframes float-up {
+            0% { transform: translate(-50%, 0); opacity: 1; }
+            100% { transform: translate(-50%, -40px); opacity: 0; }
+        }
+
+        /* Dev Menu Styles */
+        .dev-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 300;
+            padding: 20px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen select-none">
@@ -376,11 +403,35 @@
                     <div class="health-bar-container">
                         <div class="health-bar-fill" :style="{ width: (enemy.hp / enemy.maxHp * 100) + '%' }"></div>
                     </div>
+                    <!-- Enemy Range Circle -->
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border border-red-500/30 rounded-full border-dashed pointer-events-none"
+                         :style="{ width: (devSettings.enemyAttackRange * 2) + 'px', height: (devSettings.enemyAttackRange * 2) + 'px' }"></div>
                 </div>
 
                 <!-- Projectiles -->
                 <div v-for="proj in projectiles" :key="proj.id" class="projectile"
                      :style="{ left: proj.x + 'px', top: proj.y + 'px' }"></div>
+
+                <!-- Damage Popups -->
+                <div v-for="popup in damagePopups" :key="popup.id" class="damage-popup"
+                     :style="{ left: popup.x + 'px', top: popup.y + 'px' }">
+                    -{{ popup.value }}
+                </div>
+            </div>
+
+            <!-- Dev Button -->
+            <button @click="showDevMenu = true" class="absolute top-4 left-4 z-[150] bg-gray-800/80 p-2 rounded-lg border border-gray-600 text-[10px] font-bold text-gray-400">
+                DEV
+            </button>
+
+            <!-- Exit / Reset Buttons -->
+            <div class="absolute top-4 right-4 z-[150] flex gap-2">
+                <button @click="resetBattle" class="bg-gray-800/80 p-2 rounded-lg border border-gray-600 text-[10px] font-bold text-gray-400">
+                    RESET
+                </button>
+                <button @click="closeBattle" class="bg-red-900/80 p-2 rounded-lg border border-red-700 text-[10px] font-bold text-red-200">
+                    EXIT
+                </button>
             </div>
 
             <!-- FOOTER INFO -->
@@ -392,15 +443,92 @@
             <div v-if="battleResult" class="absolute inset-0 bg-black/80 flex items-center justify-center z-[120] p-8">
                 <div class="bg-gray-900 border-2 border-yellow-500 p-8 rounded-2xl text-center space-y-6 max-w-sm w-full">
                     <h2 class="text-4xl font-bold" :class="battleResult === 'VICTORY' ? 'text-yellow-500' : 'text-red-500'">{{ battleResult }}</h2>
-                    <div class="text-gray-400">Battle concluded. Enemies defeated: {{ enemiesDefeated }}/20</div>
+                    <div class="text-gray-400">Battle concluded. Enemies defeated: {{ enemiesDefeated }}</div>
                     <button @click="closeBattle" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-8 rounded-full uppercase tracking-widest w-full">Continue</button>
+                </div>
+            </div>
+
+            <!-- DEV MENU OVERLAY -->
+            <div v-if="showDevMenu" class="dev-menu flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                    <h2 class="text-xl font-bold text-yellow-500">DEV SETTINGS</h2>
+                    <button @click="showDevMenu = false" class="bg-red-600 px-4 py-1 rounded font-bold">CLOSE</button>
+                </div>
+
+                <div class="space-y-4 pb-10">
+                    <section>
+                        <h3 class="text-blue-400 font-bold mb-2 uppercase text-xs">Hero Parameters</h3>
+                        <div class="grid grid-cols-1 gap-3">
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Attack (Integer)
+                                <input type="number" v-model="devSettings.heroAttack" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: 5 + Weapon">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Attack Speed (Number)
+                                <input type="number" step="0.1" v-model="devSettings.heroAttackSpeed" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: 1.0 + Gloves">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Range (Integer)
+                                <input type="number" v-model="devSettings.heroRange" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: 15 + Boots">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                HP (Integer)
+                                <input type="number" v-model="devSettings.heroHP" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: 20 + Helmet">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Defense (Integer)
+                                <input type="number" v-model="devSettings.heroDefense" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: Chestplate">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                HP Regen (Integer)
+                                <input type="number" v-model="devSettings.heroRegen" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: Legguards">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Crit Chance (2 Decimals)
+                                <input type="number" step="0.01" v-model="devSettings.heroCritChance" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: Ring">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Crit Damage (Integer)
+                                <input type="number" v-model="devSettings.heroCritDamage" class="bg-gray-800 border border-gray-700 p-2 rounded text-white" placeholder="Current: 50 + Amulet">
+                            </label>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3 class="text-red-400 font-bold mb-2 uppercase text-xs">Enemy Parameters</h3>
+                        <div class="grid grid-cols-1 gap-3">
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Walking Speed (Integer)
+                                <input type="number" v-model="devSettings.enemyWalkingSpeed" class="bg-gray-800 border border-gray-700 p-2 rounded text-white">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Attack Range (Integer)
+                                <input type="number" v-model="devSettings.enemyAttackRange" class="bg-gray-800 border border-gray-700 p-2 rounded text-white">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Attack Power (Integer)
+                                <input type="number" v-model="devSettings.enemyAttackPower" class="bg-gray-800 border border-gray-700 p-2 rounded text-white">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Attack Speed (Integer)
+                                <input type="number" v-model="devSettings.enemyAttackSpeed" class="bg-gray-800 border border-gray-700 p-2 rounded text-white">
+                            </label>
+                            <label class="flex flex-col text-[10px] text-gray-400">
+                                Spawn Rate / sec (Integer)
+                                <input type="number" v-model="devSettings.enemySpawnRate" class="bg-gray-800 border border-gray-700 p-2 rounded text-white">
+                            </label>
+                        </div>
+                    </section>
+
+                    <button @click="devSettings.heroAttack = devSettings.heroAttackSpeed = devSettings.heroRange = devSettings.heroHP = devSettings.heroDefense = devSettings.heroRegen = devSettings.heroCritChance = devSettings.heroCritDamage = null; devSettings.enemyWalkingSpeed = 1; devSettings.enemyAttackRange = 20; devSettings.enemyAttackPower = 5; devSettings.enemyAttackSpeed = 1; devSettings.enemySpawnRate = 1;"
+                            class="w-full bg-gray-700 py-3 rounded font-bold text-xs">RESET TO DEFAULTS</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, reactive, onMounted, onUnmounted } = Vue;
+        const { createApp, ref, computed, reactive, onMounted, onUnmounted, watch } = Vue;
 
         const app = createApp({
             setup() {
@@ -438,46 +566,94 @@
 
                 const slots = Object.keys(equipmentData);
 
+                // Dev Settings
+                const showDevMenu = ref(false);
+                const devSettings = reactive({
+                    heroAttack: null,
+                    heroAttackSpeed: null,
+                    heroRange: null,
+                    heroHP: null,
+                    heroDefense: null,
+                    heroRegen: null,
+                    heroCritChance: null,
+                    heroCritDamage: null,
+                    enemyWalkingSpeed: 1,
+                    enemyAttackRange: 20,
+                    enemyAttackPower: 5,
+                    enemyAttackSpeed: 1,
+                    enemySpawnRate: 1
+                });
+
                 // Combat Stats
                 const xp = ref(0);
                 const heroHP = ref(20);
+                const damagePopups = ref([]);
+
                 const heroMaxHP = computed(() => {
+                    if (devSettings.heroHP !== null && devSettings.heroHP !== "") return parseInt(devSettings.heroHP);
                     let hp = 20;
                     if (character['Helmet']) hp += character['Helmet'].statValue;
-                    if (character['Chestplate']) hp += character['Chestplate'].statValue;
                     return hp;
                 });
                 const attackSpeed = computed(() => {
-                    let spd = 1.0; // attacks per second
+                    if (devSettings.heroAttackSpeed !== null && devSettings.heroAttackSpeed !== "") return parseFloat(devSettings.heroAttackSpeed);
+                    let spd = 1.0;
                     if (character['Gloves']) spd += character['Gloves'].statValue / 10;
                     return spd;
                 });
                 const attackPower = computed(() => {
+                    if (devSettings.heroAttack !== null && devSettings.heroAttack !== "") return parseInt(devSettings.heroAttack);
                     let atk = 5;
                     if (character['Weapon']) atk += character['Weapon'].statValue;
                     return atk;
                 });
-
                 const attackRange = computed(() => {
-                    let rng = 15; // base range
-                    if (character['Boots']) {
-                        // User: "to set the character's range, use equipment's number x 2px, if it's 10 then the range should be 10 px"
-                        // Interpretation: Diameter = number * 2, so Radius = number.
-                        rng = character['Boots'].statValue;
-                    }
+                    if (devSettings.heroRange !== null && devSettings.heroRange !== "") return parseInt(devSettings.heroRange);
+                    let rng = 15;
+                    if (character['Boots']) rng = character['Boots'].statValue;
                     return rng;
+                });
+                const heroDefense = computed(() => {
+                    if (devSettings.heroDefense !== null && devSettings.heroDefense !== "") return parseInt(devSettings.heroDefense);
+                    let def = 0;
+                    if (character['Chestplate']) def += character['Chestplate'].statValue;
+                    return def;
+                });
+                const heroRegen = computed(() => {
+                    if (devSettings.heroRegen !== null && devSettings.heroRegen !== "") return parseInt(devSettings.heroRegen);
+                    let reg = 0;
+                    if (character['Legguards']) reg += character['Legguards'].statValue;
+                    return reg;
+                });
+                const heroCritChance = computed(() => {
+                    if (devSettings.heroCritChance !== null && devSettings.heroCritChance !== "") return parseFloat(devSettings.heroCritChance);
+                    let crit = 0;
+                    if (character['Ring']) crit += parseFloat(character['Ring'].statValue);
+                    return crit;
+                });
+                const heroCritDamage = computed(() => {
+                    if (devSettings.heroCritDamage !== null && devSettings.heroCritDamage !== "") return parseInt(devSettings.heroCritDamage);
+                    let cd = 50;
+                    if (character['Amulet']) cd += character['Amulet'].statValue;
+                    return cd;
                 });
 
                 const isBattleActive = ref(false);
+                watch(() => devSettings.heroHP, (newVal) => {
+                    if (isBattleActive.value && newVal !== null && newVal !== "") {
+                        heroHP.value = parseInt(newVal);
+                    }
+                });
+
                 const battlefield = ref(null);
                 const battleResult = ref(null);
                 const enemies = ref([]);
                 const projectiles = ref([]);
                 const enemiesDefeated = ref(0);
                 const enemiesSpawned = ref(0);
-                let battleLoop = null;
-                let spawnInterval = null;
+                let nextSpawnTime = 0;
                 let lastAttackTime = 0;
+                let lastRegenTime = 0;
 
                 const equippedItem = computed(() => {
                     if (!lastItem.value) return null;
@@ -575,21 +751,20 @@
                     battleResult.value = null;
                     enemies.value = [];
                     projectiles.value = [];
+                    damagePopups.value = [];
                     enemiesDefeated.value = 0;
                     enemiesSpawned.value = 0;
                     heroHP.value = heroMaxHP.value;
-                    lastAttackTime = performance.now();
-
-                    spawnInterval = setInterval(() => {
-                        if (enemiesSpawned.value < 20) {
-                            spawnEnemy();
-                        } else if (enemies.value.length === 0) {
-                            clearInterval(spawnInterval);
-                            battleResult.value = 'VICTORY';
-                        }
-                    }, 1000);
+                    const now = performance.now();
+                    lastAttackTime = now;
+                    nextSpawnTime = now;
+                    lastRegenTime = now;
 
                     requestAnimationFrame(updateBattle);
+                };
+
+                const resetBattle = () => {
+                    startBattle();
                 };
 
                 const spawnEnemy = () => {
@@ -605,8 +780,21 @@
                         y: centerY + Math.sin(angle) * radius,
                         hp: 10,
                         maxHp: 10,
-                        speed: 1
+                        speed: parseFloat(devSettings.enemyWalkingSpeed),
+                        attackRange: parseInt(devSettings.enemyAttackRange),
+                        attackPower: parseInt(devSettings.enemyAttackPower),
+                        attackSpeed: parseFloat(devSettings.enemyAttackSpeed),
+                        lastAttack: 0
                     });
+                };
+
+                const addDamagePopup = (x, y, val) => {
+                    const id = Date.now() + Math.random();
+                    damagePopups.value.push({ id, x, y, value: val });
+                    setTimeout(() => {
+                        const idx = damagePopups.value.findIndex(p => p.id === id);
+                        if (idx !== -1) damagePopups.value.splice(idx, 1);
+                    }, 800);
                 };
 
                 const updateBattle = (time) => {
@@ -615,31 +803,55 @@
                     const centerX = battlefield.value.clientWidth / 2;
                     const centerY = battlefield.value.clientHeight / 2;
 
+                    // Infinite Spawning
+                    if (time >= nextSpawnTime) {
+                        spawnEnemy();
+                        nextSpawnTime = time + (1000 / parseFloat(devSettings.enemySpawnRate));
+                    }
+
+                    // Hero Regen
+                    if (time - lastRegenTime >= 1000) {
+                        if (heroHP.value < heroMaxHP.value) {
+                            heroHP.value = Math.min(heroMaxHP.value, heroHP.value + heroRegen.value);
+                        }
+                        lastRegenTime = time;
+                    }
+
                     // Update Enemies
-                    enemies.value.forEach((enemy, index) => {
+                    for (let i = enemies.value.length - 1; i >= 0; i--) {
+                        const enemy = enemies.value[i];
                         const dx = centerX - enemy.x;
                         const dy = centerY - enemy.y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        if (dist > 5) {
-                            enemy.x += (dx / dist) * enemy.speed;
-                            enemy.y += (dy / dist) * enemy.speed;
+                        const stopDist = parseInt(devSettings.enemyAttackRange);
+                        const speed = parseFloat(devSettings.enemyWalkingSpeed);
+                        const atkSpeed = parseFloat(devSettings.enemyAttackSpeed);
+                        const atkPower = parseInt(devSettings.enemyAttackPower);
+
+                        if (dist > stopDist) {
+                            enemy.x += (dx / dist) * speed;
+                            enemy.y += (dy / dist) * speed;
                         } else {
-                            // Enemy reached hero (5px is hero radius)
-                            heroHP.value -= 5;
-                            enemies.value.splice(index, 1);
-                            if (heroHP.value <= 0) {
-                                heroHP.value = 0;
-                                battleResult.value = 'DEFEAT';
+                            // Enemy attacks hero
+                            if (time - enemy.lastAttack >= 1000 / atkSpeed) {
+                                let damage = Math.max(1, atkPower - heroDefense.value);
+                                heroHP.value -= damage;
+                                addDamagePopup(centerX, centerY - 20, damage);
+                                enemy.lastAttack = time;
+
+                                if (heroHP.value <= 0) {
+                                    heroHP.value = 0;
+                                    battleResult.value = 'DEFEAT';
+                                }
                             }
                         }
-                    });
+                    }
 
                     // Hero Auto Attack
                     if (enemies.value.length > 0) {
                         const timeSinceLast = time - lastAttackTime;
                         if (timeSinceLast > 1000 / attackSpeed.value) {
-                            // Find nearest enemy
                             let nearest = null;
                             let minDist = Infinity;
 
@@ -659,7 +871,8 @@
                     }
 
                     // Update Projectiles
-                    projectiles.value.forEach((proj, pIndex) => {
+                    for (let i = projectiles.value.length - 1; i >= 0; i--) {
+                        const proj = projectiles.value[i];
                         const dx = proj.tx - proj.x;
                         const dy = proj.ty - proj.y;
                         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -670,25 +883,35 @@
                             proj.y += (dy / dist) * speed;
 
                             // Collision check
-                            enemies.value.forEach((enemy, eIndex) => {
+                            for (let j = enemies.value.length - 1; j >= 0; j--) {
+                                const enemy = enemies.value[j];
                                 const edx = enemy.x - proj.x;
                                 const edy = enemy.y - proj.y;
                                 const edist = Math.sqrt(edx * edx + edy * edy);
                                 if (edist < 15) {
-                                    enemy.hp -= attackPower.value;
-                                    projectiles.value.splice(pIndex, 1);
+                                    let isCrit = Math.random() < (heroCritChance.value / 100);
+                                    let damage = attackPower.value;
+                                    if (isCrit) {
+                                        damage = Math.round(damage * (1 + heroCritDamage.value / 100));
+                                    }
+
+                                    enemy.hp -= damage;
+                                    addDamagePopup(enemy.x, enemy.y - 20, damage);
+                                    projectiles.value.splice(i, 1);
+
                                     if (enemy.hp <= 0) {
-                                        enemies.value.splice(eIndex, 1);
+                                        enemies.value.splice(j, 1);
                                         enemiesDefeated.value++;
                                         currency.value += 1;
                                         xp.value += 10;
                                     }
+                                    break; // projectile hit one enemy
                                 }
-                            });
+                            }
                         } else {
-                            projectiles.value.splice(pIndex, 1);
+                            projectiles.value.splice(i, 1);
                         }
-                    });
+                    }
 
                     requestAnimationFrame(updateBattle);
                 };
@@ -706,7 +929,6 @@
                 const closeBattle = () => {
                     isBattleActive.value = false;
                     battleResult.value = null;
-                    clearInterval(spawnInterval);
                 };
 
                 let touchStartX = 0;
@@ -727,7 +949,9 @@
                     flyClass, isFlying, noTransition, equippedItem, earnCurrency, handleCardTap,
                     keepItem, discardItem, compareStats, handleTouchStart, handleTouchEnd,
                     xp, heroHP, heroMaxHP, isBattleActive, battlefield, startBattle, enemies, projectiles,
-                    battleResult, enemiesDefeated, closeBattle, attackRange
+                    battleResult, enemiesDefeated, closeBattle, attackRange,
+                    showDevMenu, devSettings, resetBattle, damagePopups,
+                    heroDefense, heroRegen, heroCritChance, heroCritDamage
                 };
             }
         });
